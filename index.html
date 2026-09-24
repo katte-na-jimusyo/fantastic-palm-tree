@@ -6,10 +6,33 @@
 <div class="scene" aria-label="正解を重ねると花が育つ夜の庭"><div class="moon"></div><div class="scene-note" id="gardenNote">今夜は、どんな庭になるだろう。</div><div class="flowers" id="flowers"></div></div>
 <section class="play" aria-label="練習"><div class="eyebrow" id="prompt">30文字で、ひとつの庭。</div><div class="target" id="target">✦</div><div class="hint" id="hint">F と J の突起に、人差し指を置こう。</div><div class="progress"><span id="bar"></span></div><div class="message" id="message" role="status">「庭を育てる」を押して、英数入力で始めよう。</div><div class="actions"><button class="primary" id="start">庭を育てる</button><button id="pause" disabled>一時停止</button><button id="hide" aria-pressed="false">位置ヒントを隠す</button></div><div class="result" id="result" hidden></div></section>
 <div id="keyboard" class="keyboard" aria-label="キー位置のガイド"></div>
-<div class="help"><div><h2>遊び方</h2><p>画面の文字と同じキーを押すと、音の種が育ちます。3文字で1輪、30文字で庭が完成。間違えても花は枯れません。苦手なキーは次の出題に少し多く登場します。</p></div><div><h2>手元を見ない、小さな練習</h2><p>左手は A・S・D・F、右手は J・K・L・; に置き、打ったら元の位置へ。画面の指ガイドを頼りに、慣れたら位置ヒントを隠してみよう。</p><p>PCの物理キーボード向け／QWERTY配列。日本語入力は「英数」に切り替えてください。</p></div></div><footer>記録はこのブラウザーだけに保存。外部へのデータ送信はありません。</footer></main>
+<div class="help"><div><h2>遊び方</h2><p>画面の文字と同じキーを押すと、音の種が育ちます。3文字で1輪、30文字で庭が完成。間違えても花は枯れません。苦手なキーは次の出題に少し多く登場します。</p></div><div><h2>手元を見ない、小さな練習</h2><p>左手は A・S・D・F、右手は J・K・L・; に置き、打ったら元の位置へ。画面の指ガイドを頼りに、慣れたら位置ヒントを隠してみよう。</p><p>PCの物理キーボード向け／QWERTY配列。日本語入力は「英数」に切り替えてください。</p></div></div><footer>苦手キーの記録はこのブラウザーに保存。利用集計のため、アクセス・開始・クリアとコースを運営者のGoogleスプレッドシートに送信します。<br>名前・メール・入力した文字は送信しません。<br><label style="font-size:14px"><input type="checkbox" id="noAnalytics"> このブラウザーから利用記録を送信しない</label></footer></main>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
+// 通信失敗がゲームに影響しない、個人識別子なしの簡易集計。
+const ANALYTICS_URL = 'https://script.google.com/macros/s/AKfycbwwsna6S-pRdW0zAH_mydNfAIKUcxl1lghBql32YcK3NUUHaMnicLCgTAZcZC_kbaw/exec';
+let analyticsDisabled = false;
+try { analyticsDisabled = localStorage.getItem('nightgarden-no-analytics') === '1'; } catch {}
+$('noAnalytics').checked = analyticsDisabled;
+$('noAnalytics').onchange = () => {
+  analyticsDisabled = $('noAnalytics').checked;
+  try { localStorage.setItem('nightgarden-no-analytics', analyticsDisabled ? '1' : '0'); } catch {}
+};
+function track(event, course = 'none') {
+  // ダウンロードしたファイルを開いただけでは計測しません。
+  if (analyticsDisabled || location.protocol !== 'https:' || location.hostname !== 'katte-na-jimusyo.github.io') return;
+  try {
+    fetch(ANALYTICS_URL, {
+      method: 'POST', mode: 'no-cors', credentials: 'omit',
+      referrerPolicy: 'no-referrer', keepalive: true,
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ app: 'nightgarden', event, course })
+    }).catch(() => {});
+    // no-corsの応答は読めないため、保存成功とは判定しません。
+    // 重複計上を避けるため、自動で再送もしません。
+  } catch {}
+}
 const groups={fj:'fj',home:'asdfjkl;',all:'abcdefghijklmnopqrstuvwxyz'};
 const fingers={};
 [['qaz','左手・小指'],['wsx','左手・薬指'],['edc','左手・中指'],['rfvtgb','左手・人差し指'],['yuhjnm','右手・人差し指'],['ik','右手・中指'],['ol','右手・薬指'],['p;','右手・小指']].forEach(([keys,name])=>[...keys].forEach(k=>fingers[k]=name));
@@ -21,12 +44,13 @@ function pick(){const keys=groups[$('level').value];const bag=[...keys].flatMap(
 function stats(){$('stats').textContent=`${count} / 30 文字　·　正確率 ${attempts?Math.round(count/attempts*100)+'%':'—'}`;$('bar').style.width=(count/30*100)+'%'}
 function tone(){if(!sound)return;try{context??=new(window.AudioContext||window.webkitAudioContext)();context.resume().catch(()=>{});const o=context.createOscillator(),g=context.createGain();o.type='sine';o.frequency.value=[261.63,293.66,329.63,392,440][count%5]*(count%3===0?2:1);g.gain.setValueAtTime(.055,context.currentTime);g.gain.exponentialRampToValueAtTime(.001,context.currentTime+.5);o.connect(g);g.connect(context.destination);o.start();o.stop(context.currentTime+.5)}catch{}}
 function flower(){const p=document.createElement('div');p.className='plant';p.style.height=(65+Math.random()*75)+'px';p.style.setProperty('--flower',['#eacc91','#bea9ec','#acdcb8','#f1b4bc','#91cdd2'][Math.floor(Math.random()*5)]);const leaf=document.createElement('i');leaf.className='leaf';p.append(leaf);$('flowers').append(p);$('gardenNote').textContent=`夜の庭に、${count/3} 輪の灯り。`}
-function start(){active=true;paused=false;count=0;attempts=0;mistakes={};$('flowers').replaceChildren();$('result').hidden=true;$('level').disabled=true;$('start').disabled=true;$('pause').disabled=false;$('pause').textContent='一時停止';$('gardenNote').textContent='小さな種から、始めよう。';$('prompt').textContent='このキーで、種を育てよう';$('message').textContent='手元より、画面を見ながら。';stats();pick();document.activeElement.blur()}
+function start(){if(active)return;track('start',$('level').value);active=true;paused=false;count=0;attempts=0;mistakes={};$('flowers').replaceChildren();$('result').hidden=true;$('level').disabled=true;$('start').disabled=true;$('pause').disabled=false;$('pause').textContent='一時停止';$('gardenNote').textContent='小さな種から、始めよう。';$('prompt').textContent='このキーで、種を育てよう';$('message').textContent='手元より、画面を見ながら。';stats();pick();document.activeElement.blur()}
 function pause(){if(!active)return;paused=!paused;$('pause').textContent=paused?'再開する':'一時停止';$('target').textContent=paused?'☾':target.toUpperCase();$('message').textContent=paused?'ひと休み。「再開する」で続きをどうぞ。':'ゆっくり、続けよう。';document.activeElement.blur()}
-function finish(){active=false;$('level').disabled=false;$('start').disabled=false;$('start').textContent='もうひとつ育てる';$('pause').disabled=true;$('target').textContent='✿';$('hint').textContent='30文字の庭ができました。';$('prompt').textContent='今夜の庭、完成';$('message').textContent='速さよりも、指が道を覚えること。';document.querySelectorAll('.key').forEach(el=>el.classList.remove('active'));const weak=Object.keys(mistakes).sort((a,b)=>mistakes[b]-mistakes[a]).slice(0,3);$('result').hidden=false;$('result').textContent=`10輪の花が咲きました。正確率 ${Math.round(count/attempts*100)}%。`+(weak.length?` 次に練習したいキー：${weak.map(k=>k.toUpperCase()).join('・')}。`:' 今回は間違いなし！位置ヒントを隠す練習もどうぞ。');try{localStorage.setItem('nightgarden-v1',JSON.stringify(memory))}catch{$('message').textContent='庭が完成！この環境では練習記録を保存できません。'}}
+function finish(){if(!active)return;track('clear',$('level').value);active=false;$('level').disabled=false;$('start').disabled=false;$('start').textContent='もうひとつ育てる';$('pause').disabled=true;$('target').textContent='✿';$('hint').textContent='30文字の庭ができました。';$('prompt').textContent='今夜の庭、完成';$('message').textContent='速さよりも、指が道を覚えること。';document.querySelectorAll('.key').forEach(el=>el.classList.remove('active'));const weak=Object.keys(mistakes).sort((a,b)=>mistakes[b]-mistakes[a]).slice(0,3);$('result').hidden=false;$('result').textContent=`10輪の花が咲きました。正確率 ${Math.round(count/attempts*100)}%。`+(weak.length?` 次に練習したいキー：${weak.map(k=>k.toUpperCase()).join('・')}。`:' 今回は間違いなし！位置ヒントを隠す練習もどうぞ。');try{localStorage.setItem('nightgarden-v1',JSON.stringify(memory))}catch{$('message').textContent='庭が完成！この環境では練習記録を保存できません。'}}
 $('start').onclick=start;$('pause').onclick=pause;
 $('sound').onclick=()=>{sound=!sound;$('sound').textContent='音：'+(sound?'オン':'オフ');$('sound').setAttribute('aria-pressed',String(sound));if(sound)tone();$('sound').blur()};
 $('hide').onclick=()=>{concealed=!concealed;$('keyboard').classList.toggle('hidden',concealed);$('hide').textContent=concealed?'位置ヒントを表示':'位置ヒントを隠す';$('hide').setAttribute('aria-pressed',String(concealed));if(active)$('hint').textContent=concealed?'手の位置を思い出して、ゆっくり。':fingers[target];$('hide').blur()};
 document.addEventListener('keydown',e=>{if(!active||paused||e.repeat||e.metaKey||e.ctrlKey||e.altKey)return;if(e.isComposing||e.key==='Process'||e.keyCode===229){$('message').textContent='日本語入力を「英数」に切り替えてね。';return}if(e.target.matches('button,select,input,textarea'))return;const k=e.key.toLowerCase();if(!/^[a-z;]$/.test(k))return;e.preventDefault();attempts++;if(k===target){count++;memory[target]=Math.max(0,(Number(memory[target])||0)-.25);tone();if(count%3===0)flower();$('message').textContent=count%3===0?'花がひとつ、灯りました。':'いいね。その調子で、ゆっくり。';stats();if(count===30)finish();else pick()}else{mistakes[target]=(mistakes[target]||0)+1;memory[target]=Math.min(4,(Number(memory[target])||0)+1);$('message').textContent=`今は ${target.toUpperCase()}。`+(concealed?'位置を思い出してみよう。':fingers[target]+'で、もう一度。');$('target').classList.add('wrong');setTimeout(()=>$('target').classList.remove('wrong'),200);stats()}});
+track('view');
 window.addEventListener('blur',()=>{if(active&&!paused)pause()});
 </script></body></html>
